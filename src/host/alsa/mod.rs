@@ -393,9 +393,16 @@ impl Device {
 
         // Check to see if we can retrieve valid timestamps from the device.
         // Related: https://bugs.freedesktop.org/show_bug.cgi?id=88503
-        let ts = handle.status()?.get_htstamp();
-        let creation_instant = match (ts.tv_sec, ts.tv_nsec) {
-            (0, 0) => Some(std::time::Instant::now()),
+        //
+        // Some hardware/drivers report a non-zero `get_htstamp` (wall-clock
+        // based) but leave `get_trigger_htstamp` at zero.  In that case the
+        // hardware timestamp path would produce garbage, so we also fall back
+        // to the Instant-based approach.
+        let status = handle.status()?;
+        let ts = status.get_htstamp();
+        let trigger_ts = status.get_trigger_htstamp();
+        let creation_instant = match ((ts.tv_sec, ts.tv_nsec), (trigger_ts.tv_sec, trigger_ts.tv_nsec)) {
+            ((0, 0), _) | (_, (0, 0)) => Some(std::time::Instant::now()),
             _ => None,
         };
 
@@ -1117,11 +1124,7 @@ fn stream_timestamp_fallback(
 // https://fossies.org/linux/alsa-lib/test/audio_time.c
 #[inline]
 fn timespec_to_nanos(ts: libc::timespec) -> i64 {
-    let nanos = ts.tv_sec * 1_000_000_000 + ts.tv_nsec;
-    #[cfg(target_pointer_width = "64")]
-    return nanos;
-    #[cfg(not(target_pointer_width = "64"))]
-    return nanos.into();
+    (ts.tv_sec as i64) * 1_000_000_000 + (ts.tv_nsec as i64)
 }
 
 // Adapted from `timediff` here:
