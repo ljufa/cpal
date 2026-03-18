@@ -1419,15 +1419,22 @@ fn set_hw_params_from_format(
     // We need to re-initialize hw_params and set BOTH period and buffer to constrain properly.
     if config.buffer_size == BufferSize::Default {
         if let Ok(period) = hw_params.get_period_size() {
-            // Re-initialize hw_params to clear previous constraints
-            let hw_params = init_hw_params(pcm_handle, config, sample_format)?;
-
-            // Set both period (to device's chosen value) and buffer (to 2 periods)
-            hw_params.set_period_size_near(period, alsa::ValueOr::Nearest)?;
-            hw_params.set_buffer_size_near(2 * period)?;
-
-            // Re-apply with new constraints
-            pcm_handle.hw_params(&hw_params)?;
+            // Best-effort: constrain buffer to 2 periods for lower latency.
+            // If this fails (e.g. I2S DACs at certain sample rates), the
+            // configuration from the first pass is already active and valid.
+            let try_constrain = || -> Result<(), BackendSpecificError> {
+                let hw_params = init_hw_params(pcm_handle, config, sample_format)?;
+                hw_params.set_period_size_near(period, alsa::ValueOr::Nearest)?;
+                hw_params.set_buffer_size_near(2 * period)?;
+                pcm_handle.hw_params(&hw_params)?;
+                Ok(())
+            };
+            if let Err(e) = try_constrain() {
+                eprintln!(
+                    "cpal: could not constrain buffer to 2 periods (period={period}): {e}. \
+                     Using device defaults from initial configuration."
+                );
+            }
         }
     }
 
