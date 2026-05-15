@@ -5,10 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.6] - 2026-02-18
+
+### Fixed
+- Link `advapi32` to resolve Windows Registry API symbols.
+
+## [0.2.5] - 2026-01-04
+
+### Fixed
+- Fixed ASIO SDK discovery on case sensitive filesystems.
+
+## [0.2.4] - 2025-12-20
 
 ### Fixed
 - Fixed docs.rs documentation build by generating stub bindings when building for docs.rs
+- Fixed buffer switch detection to work correctly with non-conformant ASIO drivers
 
 ## [0.2.3] - 2025-12-12
 
@@ -71,6 +82,9 @@ Initial release.
 - Support for MSVC toolchain on Windows
 - Basic error types: `AsioError`, `LoadDriverError`
 
+[0.2.6]: https://github.com/RustAudio/cpal/compare/asio-sys-v0.2.5...asio-sys-v0.2.6
+[0.2.5]: https://github.com/RustAudio/cpal/compare/asio-sys-v0.2.4...asio-sys-v0.2.5
+[0.2.4]: https://github.com/RustAudio/cpal/compare/asio-sys-v0.2.3...asio-sys-v0.2.4
 [0.2.3]: https://github.com/RustAudio/cpal/compare/asio-sys-v0.2.2...asio-sys-v0.2.3
 [0.2.2]: https://github.com/RustAudio/cpal/compare/asio-sys-v0.2.1...asio-sys-v0.2.2
 [0.2.1]: https://github.com/RustAudio/cpal/compare/asio-sys-v0.2.0...asio-sys-v0.2.1

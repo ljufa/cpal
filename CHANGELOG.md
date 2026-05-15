@@ -5,7 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.17.3] - 2026-02-18
+
+### Changed
+
+- Reverted SemVer-breaking `DeviceBusy` error variant addition.
+
+### Fixed
+
+- **ASIO**: Fix linker errors.
+
+## [0.17.2] - 2026-02-08 [YANKED]
+
+### Added
+
+- `DeviceBusy` error variant for retriable device access errors (EBUSY, EAGAIN).
+- **ALSA**: `Debug` implementations for `Host`, `Device`, `Stream`, and internal types.
+- **ALSA**: Example demonstrating ALSA error suppression during enumeration.
+- **WASAPI**: Enable as-necessary resampling in the WASAPI server process.
+
+### Changed
+
+- Bump overall MSRV to 1.78.
+- **ALSA**: Update `alsa` dependency to 0.11.
+- **ALSA**: Bump MSRV to 1.82.
+- **CoreAudio**: Update `core-audio-rs` dependency to 0.14.
+
+### Fixed
+
+- **ALSA**: Enumerating input and output devices no longer interferes with each other.
+- **ALSA**: Device handles are no longer exclusively held between operations.
+- **ALSA**: Reduce Valgrind memory leak reports from ALSA global configuration cache.
+- **ALSA**: Fix possible race condition on drop.
+- **ALSA**: Fix audio callback stalling when start threshold is not met.
+
+## [0.17.1] - 2026-01-04
+
+### Added
+
+- **ALSA**: `Default` implementation for `Device` (returns the ALSA "default" device).
+- **CI**: Checks default/no-default/all feature sets with platform-dependent MSRV for JACK.
+
+### Changed
+
+- **ALSA**: Devices now report direction from hint metadata and physical hardware probing.
+
+### Fixed
+
+- **ALSA**: Device enumeration now includes both hints and physical cards.
+- **JACK**: No longer builds on iOS.
+- **WASM**: WasmBindgen no longer crashes (regression from 0.17.0).
+
+## [0.17.0] - 2025-12-20
 
 ### Added
 
@@ -40,6 +91,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- MSRV depends on the platform and at minimum 1.77.
+- Set examples to Rust 2021.
 - `SampleRate` from struct to `u32` type alias.
 - Update `audio_thread_priority` to 0.34.
 - Migrate CHANGELOG to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
@@ -56,9 +109,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI**: Replace cargo install commands with cached tool installation for faster builds.
 - **CI**: Update actions to latest versions (checkout@v5, rust-cache@v2).
 - **CI**: Verify compatibility with windows crates since v0.59.
+- **CI**: Test platforms on appropriate MSRV per backend.
+- **CI**: Fix `cargo update` syntax for compatibility with Cargo 1.70 (use `-p` flag instead of positional argument).
 - **CoreAudio**: `Device::supported_configs` to return a single element containing the available sample rate range when all elements have the same `mMinimum` and `mMaximum` values.
 - **CoreAudio**: Default audio device detection to be lazy when building a stream, instead of during device enumeration.
-- **CoreAudio**: Update `mach2` to 0.6.
 - **CoreAudio**: Configure device buffer to ensure predictable callback buffer sizes.
 - **CoreAudio**: Remove `Clone` implementation from `Stream`.
 - **JACK**: Use `StreamError::StreamInvalidated` for JACK server sample rate changes.
@@ -68,7 +122,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **ALSA**: Format selection to probe hardware endianness instead of assuming native byte order.
+- **ALSA**: Data race in stream shutdown.
 - **ASIO**: Handling for `kAsioResetRequest` message to prevent driver UI becoming unresponsive.
+- **ASIO**: Buffer silencing logic to work with non-conformant drivers (e.g., FL Studio ASIO).
 - **CoreAudio**: Timestamp accuracy.
 - **CoreAudio**: Segfaults when enumerating devices.
 - **CoreAudio**: Undefined behavior related to null pointers and aligned reads.
@@ -1013,7 +1069,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial commit.
 
-[unreleased]: https://github.com/RustAudio/cpal/compare/v0.16.0...HEAD
+[0.17.3]: https://github.com/RustAudio/cpal/compare/v0.17.2...v0.17.3
+[0.17.2]: https://github.com/RustAudio/cpal/compare/v0.17.1...v0.17.2
+[0.17.1]: https://github.com/RustAudio/cpal/compare/v0.17.0...v0.17.1
+[0.17.0]: https://github.com/RustAudio/cpal/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/RustAudio/cpal/compare/v0.15.3...v0.16.0
 [0.15.3]: https://github.com/RustAudio/cpal/compare/v0.15.2...v0.15.3
 [0.15.2]: https://github.com/RustAudio/cpal/compare/v0.15.1...v0.15.2

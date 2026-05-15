@@ -130,15 +130,13 @@ pub trait DeviceTrait {
     /// True if the device supports audio input, otherwise false
     fn supports_input(&self) -> bool {
         self.supported_input_configs()
-            .map(|mut iter| iter.next().is_some())
-            .unwrap_or(false)
+            .is_ok_and(|mut iter| iter.next().is_some())
     }
 
     /// True if the device supports audio output, otherwise false
     fn supports_output(&self) -> bool {
         self.supported_output_configs()
-            .map(|mut iter| iter.next().is_some())
-            .unwrap_or(false)
+            .is_ok_and(|mut iter| iter.next().is_some())
     }
 
     /// An iterator yielding formats that are supported by the backend.

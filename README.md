@@ -5,6 +5,21 @@
 
 Low-level library for audio input and output in pure Rust.
 
+## Minimum Supported Rust Version (MSRV)
+
+The minimum Rust version required depends on which audio backend and features you're using, as each platform has different dependencies:
+
+- **AAudio (Android):** Rust **1.82** (due to `ndk` crate requirements)
+- **ALSA (Linux/BSD):** Rust **1.82** (due to `alsa-sys` crate requirements)
+- **CoreAudio (macOS/iOS):** Rust **1.80** (due to `coreaudio-rs` crate requirements)
+- **JACK (Linux/BSD/macOS/Windows):** Rust **1.82** (due to `jack` crate requirements)
+- **WASAPI/ASIO (Windows):** Rust **1.82** (due to `windows` crate requirements)
+- **WASM (`wasm32-unknown`):** Rust **1.82** (due to `gloo` crate requirements)
+- **WASM (`wasm32-wasip1`):** Rust **1.78** (target stabilized in 1.78)
+- **WASM (`audioworklet`):** Rust **nightly** (requires `-Zbuild-std` for atomics support)
+
+## Supported Platforms
+
 This library currently supports the following:
 
 - Enumerate supported audio hosts.
@@ -216,7 +231,7 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 
 - **Documentation:** [docs.rs/cpal](https://docs.rs/cpal)
 - **Examples:** [examples/](examples/) directory in this repository
-- **Discord:** Join the [#cpal channel](https://discordapp.com/channels/590254806208217089/672897096826748948) for questions and discussion
+- **Discord:** Join the [#cpal channel](https://discord.gg/vPmmSgJSPV) for questions and discussion
 - **GitHub:** [Report issues](https://github.com/RustAudio/cpal/issues) and [view source code](https://github.com/RustAudio/cpal)
 - **RustAudio:** Part of the [RustAudio organization](https://github.com/RustAudio)
 
