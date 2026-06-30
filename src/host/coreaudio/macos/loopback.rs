@@ -1,7 +1,14 @@
 //! Manages loopback recording (recording system audio output)
 
-use super::device::Device;
-use crate::{host::coreaudio::check_os_status, BackendSpecificError, BuildStreamError};
+use std::{
+    ffi::{c_void, CStr},
+    mem::MaybeUninit,
+    ptr::NonNull,
+    sync::atomic::{AtomicU32, Ordering},
+};
+
+static AGGREGATE_INSTANCE_COUNTER: AtomicU32 = AtomicU32::new(0);
+
 use objc2::{rc::Retained, AnyThread};
 use objc2_core_audio::{
     kAudioAggregateDeviceNameKey, kAudioAggregateDeviceTapAutoStartKey,
@@ -18,16 +25,14 @@ use objc2_core_foundation::{
     kCFTypeDictionaryValueCallBacks, CFArray, CFDictionary, CFMutableDictionary, CFRetained,
     CFString, CFStringCreateWithCString,
 };
-use objc2_foundation::{ns_string, NSArray, NSNumber, NSString};
-use std::{
-    ffi::{c_void, CStr},
-    mem::MaybeUninit,
-    ptr::NonNull,
-};
+use objc2_foundation::{NSArray, NSNumber, NSString};
+
+use super::device::Device;
+use crate::{host::coreaudio::check_os_status, Error, ErrorKind};
 type CFStringRef = *mut std::os::raw::c_void;
 
 impl Device {
-    fn uid(&self) -> Result<Retained<NSString>, BackendSpecificError> {
+    fn uid(&self) -> Result<Retained<NSString>, Error> {
         let mut cfstring: CFStringRef = std::ptr::null_mut();
         let mut size = std::mem::size_of::<CFStringRef>() as u32;
 
@@ -50,9 +55,7 @@ impl Device {
         check_os_status(status)?;
 
         if cfstring.is_null() {
-            return Err(BackendSpecificError {
-                description: "Device uid is null".to_string(),
-            });
+            return Err(ErrorKind::DeviceNotAvailable.into());
         }
 
         let ns_string: Retained<NSString> = unsafe {
@@ -80,8 +83,11 @@ pub struct LoopbackDevice {
 impl LoopbackDevice {
     /// Create a [`LoopbackDevice`] that records the sound
     /// output of `device`.
-    pub fn from_device(device: &Device) -> Result<Self, BuildStreamError> {
+    pub fn from_device(device: &Device) -> Result<Self, Error> {
         // 1 - Create tap
+
+        let pid = std::process::id();
+        let instance = AGGREGATE_INSTANCE_COUNTER.fetch_add(1, Ordering::Relaxed);
 
         // Empty list of processes as we want to record all processes
         let processes = NSArray::new();
@@ -96,25 +102,33 @@ impl LoopbackDevice {
         };
         unsafe {
             tap_desc.setMuteBehavior(CATapMuteBehavior::Unmuted); // captured audio still goes to speakers
-            tap_desc.setName(ns_string!("cpal output recorder"));
+            tap_desc.setName(&NSString::from_str(&format!(
+                "cpal output recorder {pid}.{instance}"
+            )));
             tap_desc.setPrivate(true); // the Aggregate Device would be private
             tap_desc.setExclusive(true); // the process list means exclude them
         };
 
         let mut tap_obj_id: MaybeUninit<AudioObjectID> = MaybeUninit::uninit();
         let tap_obj_id = unsafe {
-            AudioHardwareCreateProcessTap(Some(tap_desc.as_ref()), tap_obj_id.as_mut_ptr());
+            let status =
+                AudioHardwareCreateProcessTap(Some(tap_desc.as_ref()), tap_obj_id.as_mut_ptr());
+            check_os_status(status)?;
             tap_obj_id.assume_init()
         };
         let tap_uid = unsafe { tap_desc.UUID().UUIDString() };
 
         // 2 - Create aggregate device
-        let aggregate_device_properties = create_audio_aggregate_device_properties(tap_uid);
-        let aggregate_device_id: AudioObjectID = 0;
+        let aggregate_device_properties = create_audio_aggregate_device_properties(
+            tap_uid,
+            &format!("com.cpal.LoopbackRecordAggregateDevice.{pid}.{instance}"),
+            &format!("Cpal loopback aggregate {pid}.{instance}"),
+        );
+        let mut aggregate_device_id: AudioObjectID = 0;
         let status = unsafe {
             AudioHardwareCreateAggregateDevice(
                 aggregate_device_properties.as_ref(),
-                NonNull::from(&aggregate_device_id),
+                NonNull::from(&mut aggregate_device_id),
             )
         };
         check_os_status(status)?;
@@ -163,14 +177,14 @@ fn to_cfstring(cstr: &'static CStr) -> CFRetained<CFString> {
 ///     @kAudioAggregateDeviceUIDKey :
 ///         @"com.josephlyncheski.MiniMetersAggregateDevice",
 ///     @kAudioAggregateDeviceTapListKey : taps,
-///     @kAudioAggregateDeviceTapAutoStartKey : @NO,
-///     // If we set this to NO then I believe we need to make the Tap public as
-///     // well.
+///     @kAudioAggregateDeviceTapAutoStartKey : @YES,
 ///     @kAudioAggregateDeviceIsPrivateKey : @YES,
 /// };
 /// ```
 pub fn create_audio_aggregate_device_properties(
     tap_uid: Retained<NSString>,
+    agg_uid: &str,
+    agg_name: &str,
 ) -> CFRetained<CFDictionary> {
     let tap_inner = unsafe {
         let dict = CFMutableDictionary::new(
@@ -216,14 +230,12 @@ pub fn create_audio_aggregate_device_properties(
         CFMutableDictionary::set_value(
             Some(dict.as_ref()),
             &*to_cfstring(kAudioAggregateDeviceNameKey) as *const _ as *const c_void,
-            &*CFString::from_str("Cpal loopback record aggregate device") as *const _
-                as *const c_void,
+            &*CFString::from_str(agg_name) as *const _ as *const c_void,
         );
         CFMutableDictionary::set_value(
             Some(dict.as_ref()),
             &*to_cfstring(kAudioAggregateDeviceUIDKey) as *const _ as *const c_void,
-            &*CFString::from_str("com.cpal.LoopbackRecordAggregateDevice") as *const _
-                as *const c_void,
+            &*CFString::from_str(agg_uid) as *const _ as *const c_void,
         );
         CFMutableDictionary::set_value(
             Some(dict.as_ref()),
@@ -233,7 +245,7 @@ pub fn create_audio_aggregate_device_properties(
         CFMutableDictionary::set_value(
             Some(dict.as_ref()),
             &*to_cfstring(kAudioAggregateDeviceTapAutoStartKey) as *const _ as *const c_void,
-            &*NSNumber::initWithBool(NSNumber::alloc(), false) as *const _ as *const c_void,
+            &*NSNumber::initWithBool(NSNumber::alloc(), true) as *const _ as *const c_void,
         );
         CFMutableDictionary::set_value(
             Some(dict.as_ref()),
